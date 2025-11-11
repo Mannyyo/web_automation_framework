@@ -8,7 +8,10 @@ sys.path.append(
 import time
 from core.browser_manager import Browser
 from excel.excel_manager import ExcelManager
+from utils.logger import setup_logger
 
+
+logger = setup_logger()
 
 def exemplo():
     nav = Browser(browser='firefox', headless=False)
@@ -37,7 +40,7 @@ def exemplo():
         if data:
             path = os.path.join(os.curdir, 'examples', 'screenshots', 'saida.xlsx')
             ExcelManager.write(path, data, sheet_name='Resultados')
-            print('Dados gravados em saida.xlsx')
+            logger.info(f'Dados gravados em {path}')
     finally:
         nav.quit()
 
