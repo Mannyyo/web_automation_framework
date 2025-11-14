@@ -103,6 +103,59 @@ class Browser:
             self.logger.error(f"Timeout: elemento '{selector}' não encontrado em {timeout}s.")
             raise e
 
+    # --------------------------------------------------------------
+    # CONTROLE DE ABAS E JANELAS
+    # --------------------------------------------------------------
+    def new_tab(self, url: str = None):
+        """Abre uma nova aba e navega opcionalmente para uma URL."""
+        self.logger.info("Abrindo nova aba...")
+        self.driver.execute_script("window.open('');")
+        self.switch_to_tab(self.tabs_count() - 1)
+        if url:
+            self.go_to(url)
+
+    def tabs_count(self) -> int:
+        return len(self.driver.window_handles)
+
+    def switch_to_tab(self, index: int):
+        """Troca para a aba pelo índice."""
+        handles = self.driver.window_handles
+        if index < 0 or index >= len(handles):
+            raise IndexError(f"Índice de aba inválido: {index}")
+
+        self.logger.info(f"Alterando para aba {index}")
+        self.driver.switch_to.window(handles[index])
+
+    def current_tab(self) -> int:
+        """Retorna o índice da aba atual."""
+        return self.driver.window_handles.index(self.driver.current_window_handle)
+
+    def close_tab(self):
+        """Fecha a aba atual e muda para a última."""
+        self.logger.info("Fechando aba atual")
+        self.driver.close()
+        if self.tabs_count() > 0:
+            self.switch_to_tab(self.tabs_count() - 1)
+
+    # --------------------------------------------------------------
+    # CONTROLE DE FRAMES
+    # --------------------------------------------------------------
+    def switch_to_frame(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Troca para um frame localizado por seletor CSS."""
+        self.logger.info(f"Alternando para frame: {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        self.driver.switch_to.frame(el)
+
+    def switch_to_frame_by_index(self, index: int):
+        """Troca para um frame pelo índice numérico."""
+        self.logger.info(f"Alternando para frame índice: {index}")
+        self.driver.switch_to.frame(index)
+
+    def switch_to_default(self):
+        """Sai do frame e volta para o conteúdo principal."""
+        self.logger.info("Retornando ao conteúdo principal (default content)")
+        self.driver.switch_to.default_content()
+
     # ------------------------------------------------------------------
     # Ações de interação
     # ------------------------------------------------------------------
@@ -182,6 +235,46 @@ class Browser:
 
         self.logger.info(f"Tabela extraída com {len(data)} linhas.")
         return data
+
+    # --------------------------------------------------------------
+    # CONTROLE DE ALERTS
+    # --------------------------------------------------------------
+    def alert_accept(self):
+        """Aceita o alert."""
+        self.logger.info("Aceitando alert...")
+        alert = self.driver.switch_to.alert
+        alert.accept()
+
+    def alert_dismiss(self):
+        """Cancela o alert."""
+        self.logger.info("Cancelando alert...")
+        alert = self.driver.switch_to.alert
+        alert.dismiss()
+
+    def alert_text(self) -> str:
+        """Retorna o texto do alert."""
+        alert = self.driver.switch_to.alert
+        text = alert.text
+        self.logger.info(f"Texto do alert: {text}")
+        return text
+
+    # --------------------------------------------------------------
+    # UTILITÁRIOS AVANÇADOS
+    # --------------------------------------------------------------
+    def execute_script(self, script: str, *args):
+        """Executa JavaScript no navegador."""
+        self.logger.debug(f"Executando JS: {script[:60]}...")
+        return self.driver.execute_script(script, *args)
+
+    def scroll_to(self, target):
+        """Rola a página até um seletor CSS ou WebElement."""
+        if isinstance(target, str):
+            el = self.wait_for(target)
+        else:
+            el = target
+
+        self.logger.info(f"Rolando até o elemento: {el}")
+        self.driver.execute_script("arguments[0].scrollIntoView(true);", el)
 
     # ------------------------------------------------------------------
     # Utilitários
