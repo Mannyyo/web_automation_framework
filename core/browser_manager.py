@@ -52,6 +52,8 @@ class Browser:
     def _start_driver(self):
         if self.browser_name == "chrome":
             from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.chrome.service import Service as ChromeService
+            from webdriver_manager.chrome import ChromeDriverManager
 
             options = Options()
             if self.headless:
@@ -59,18 +61,25 @@ class Browser:
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
 
-            if self.driver_path:
-                return webdriver.Chrome(executable_path=self.driver_path, options=options)
-            return webdriver.Chrome(options=options)
+            driver_path = ChromeDriverManager().install()
+            self.logger.info(f"ChromeDriver obtido em: {driver_path}")
+            
+            service = ChromeService(driver_path)
+            return webdriver.Chrome(service=service, options=options)
 
         elif self.browser_name == "firefox":
             from selenium.webdriver.firefox.options import Options
+            from selenium.webdriver.firefox.service import Service as FirefoxService
+            from webdriver_manager.firefox import GeckoDriverManager
 
             options = Options()
             options.headless = self.headless
-            if self.driver_path:
-                return webdriver.Firefox(executable_path=self.driver_path, options=options)
-            return webdriver.Firefox(options=options)
+            
+            driver_path = GeckoDriverManager().install()
+            self.logger.info(f"GeckoDriver obtido em: {driver_path}")
+            
+            service = FirefoxService(driver_path)
+            return webdriver.Firefox(service=service, options=options)
 
         else:
             raise ValueError(f"Browser '{self.browser_name}' não suportado.")
