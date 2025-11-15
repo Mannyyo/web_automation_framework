@@ -26,6 +26,7 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
 from utils.logger import setup_logger
 from utils.decorators import retry_on_fail
+from utils.error_handler import capture_failures
 
 
 class Browser:
@@ -93,6 +94,7 @@ class Browser:
         self.logger.info(f"Acessando URL: {url}")
         self.driver.get(url)
 
+    @capture_failures
     @retry_on_fail(retries=3, delay=1.5)
     def wait_for(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = 10):
         self.logger.debug(f"Aguardando elemento: {selector}")
@@ -119,6 +121,7 @@ class Browser:
     def tabs_count(self) -> int:
         return len(self.driver.window_handles)
 
+    @capture_failures
     def switch_to_tab(self, index: int):
         """Troca para a aba pelo índice."""
         handles = self.driver.window_handles
@@ -138,10 +141,25 @@ class Browser:
         self.driver.close()
         if self.tabs_count() > 0:
             self.switch_to_tab(self.tabs_count() - 1)
+    
+    def close_all_other_tabs(self):
+        """Fecha todas as abas exceto a aba atual."""
+        current_handle = self.driver.current_window_handle
+        all_handles = self.driver.window_handles
+
+        self.logger.info(f"Fechando demais abas")
+        for handle in all_handles:
+            if handle != current_handle:
+                self.driver.switch_to.window(handle)
+                self.driver.close()
+
+        self.logger.info("Retornando à aba atual")
+        self.driver.switch_to.window(current_handle)
 
     # --------------------------------------------------------------
     # CONTROLE DE FRAMES
     # --------------------------------------------------------------
+    @capture_failures
     def switch_to_frame(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
         """Troca para um frame localizado por seletor CSS."""
         self.logger.info(f"Alternando para frame: {selector}")
@@ -161,6 +179,7 @@ class Browser:
     # ------------------------------------------------------------------
     # Ações de interação
     # ------------------------------------------------------------------
+    @capture_failures
     @retry_on_fail(retries=3, delay=2.0)
     def click(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = 10):
         self.logger.debug(f"Tentando clicar em: {selector}")
@@ -172,6 +191,7 @@ class Browser:
             self.logger.warning(f"Falha ao clicar ({e.__class__.__name__}), tentando novamente...")
             raise e
 
+    @capture_failures
     @retry_on_fail(retries=3, delay=1.5)
     def type(
         self,
@@ -192,6 +212,7 @@ class Browser:
             self.logger.warning(f"Falha ao digitar ({e.__class__.__name__}), tentando novamente...")
             raise e
 
+    @capture_failures
     def get_text(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = 10) -> str:
         element = self.wait_for(selector, by=by, timeout=timeout)
         text = element.text
@@ -295,6 +316,7 @@ class Browser:
     # ------------------------------------------------------------------
     # Extração de dados
     # ------------------------------------------------------------------
+    @capture_failures
     @retry_on_fail(retries=2, delay=2.0)
     def extract_table(
         self, table_selector: str, by: By = By.CSS_SELECTOR, header: bool = True
@@ -355,8 +377,29 @@ class Browser:
         return text
 
     # --------------------------------------------------------------
+    # CAPTURA DE FALHAS
+    # --------------------------------------------------------------
+    def capture_evidence(self, name: str):
+        folder = "logs/errors"
+        os.makedirs(folder, exist_ok=True)
+
+        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+        base = f"{timestamp}_{name}"
+
+        screenshot_path = os.path.join(folder, base + ".png")
+        html_path = os.path.join(folder, base + ".html")
+
+        self.driver.save_screenshot(screenshot_path)
+
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(self.driver.page_source)
+
+        self.logger.info(f"Evidências salvas: {screenshot_path}, {html_path}")
+
+    # --------------------------------------------------------------
     # UTILITÁRIOS AVANÇADOS
     # --------------------------------------------------------------
+    @capture_failures
     def execute_script(self, script: str, *args):
         """Executa JavaScript no navegador."""
         self.logger.debug(f"Executando JS: {script[:60]}...")

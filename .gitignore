@@ -206,5 +206,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Exemples files
+# Output files from examples
 examples/screenshots/
+
+# Logs
+logs/
