@@ -10,8 +10,7 @@ Inclui:
 
 import os
 import time
-import logging
-from typing import Optional, List
+from typing import Optional, List, Union
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -24,6 +23,7 @@ from selenium.common.exceptions import (
 )
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
+from core.config_manager import ConfigManager
 from utils.logger import setup_logger
 from utils.decorators import retry_on_fail
 from utils.error_handler import capture_failures
@@ -32,17 +32,24 @@ from utils.error_handler import capture_failures
 class Browser:
     def __init__(
         self,
-        browser: str = "chrome",
-        headless: bool = True,
+        browser: str = None,
+        headless: bool = None,
         driver_path: Optional[str] = None,
-        implicit_wait: int = 5,
-        log_level: int = logging.INFO,
+        implicit_wait: int = None,
+        explicit_timeout: int = None,
+        log_level: Union[str, int] = None,
     ):
-        self.browser_name = browser.lower()
-        self.headless = headless
-        self.driver_path = driver_path
-        self.implicit_wait = implicit_wait
-        self.logger = setup_logger("browser", level=log_level)
+        
+        cfg = ConfigManager
+
+        self.browser_name = browser.lower() or cfg.get("BROWSER", "chrome")
+        self.headless = headless if headless is not None else ctg.get("HEADLESS", True, cast=bool)
+        # self.driver_path = driver_path
+        self.implicit_wait = implicit_wait or cfg.get("IMPLICIT_WAIT", 5, cast=int)
+        self.explicit_timeout = explicit_timeout or cfg.get("EXPLICIT_TIMEOUT", 10, cast=int)
+        self.log_level = log_level or cfg.get("LOG_LEVEL", "INFO")
+        
+        self.logger = setup_logger("browser", level=self.log_level)
 
         self.logger.info(f"Iniciando navegador: {self.browser_name} (headless={self.headless})")
         self.driver = self._start_driver()
@@ -96,8 +103,9 @@ class Browser:
 
     @capture_failures
     @retry_on_fail(retries=3, delay=1.5)
-    def wait_for(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = 10):
+    def wait_for(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = None):
         self.logger.debug(f"Aguardando elemento: {selector}")
+        timeout = timeout or self.explicit_timeout
         try:
             wait = WebDriverWait(self.driver, timeout)
             element = wait.until(EC.presence_of_element_located((by, selector)))
@@ -160,9 +168,10 @@ class Browser:
     # CONTROLE DE FRAMES
     # --------------------------------------------------------------
     @capture_failures
-    def switch_to_frame(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def switch_to_frame(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Troca para um frame localizado por seletor CSS."""
         self.logger.info(f"Alternando para frame: {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         self.driver.switch_to.frame(el)
 
@@ -181,8 +190,9 @@ class Browser:
     # ------------------------------------------------------------------
     @capture_failures
     @retry_on_fail(retries=3, delay=2.0)
-    def click(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = 10):
+    def click(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = None):
         self.logger.debug(f"Tentando clicar em: {selector}")
+        timeout = timeout or self.explicit_timeout
         element = self.wait_for(selector, by=by, timeout=timeout)
         try:
             element.click()
@@ -198,10 +208,11 @@ class Browser:
         selector: str,
         text: str,
         by: By = By.CSS_SELECTOR,
-        timeout: int = 10,
+        timeout: int = None,
         clear_first: bool = True,
     ):
         self.logger.debug(f"Digitando em {selector}: '{text}'")
+        timeout = timeout or self.explicit_timeout
         element = self.wait_for(selector, by=by, timeout=timeout)
         try:
             if clear_first:
@@ -213,7 +224,8 @@ class Browser:
             raise e
 
     @capture_failures
-    def get_text(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = 10) -> str:
+    def get_text(self, selector: str, by: By = By.CSS_SELECTOR, timeout: int = None) -> str:
+        timeout = timeout or self.explicit_timeout
         element = self.wait_for(selector, by=by, timeout=timeout)
         text = element.text
         self.logger.debug(f"Texto obtido de '{selector}': {text[:50]}")
@@ -227,33 +239,38 @@ class Browser:
         self.logger.debug("Construindo ActionChain manual.")
         return ActionChains(self.driver)
 
-    def move_to(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def move_to(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Move o mouse até o elemento."""
         self.logger.info(f"Movendo mouse para {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         ActionChains(self.driver).move_to_element(el).perform()
 
-    def hover(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def hover(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Efetua um hover sobre o elemento."""
         self.logger.info(f"Hover em {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         ActionChains(self.driver).move_to_element(el).perform()
 
-    def double_click(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def double_click(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Dá um double-click no elemento."""
         self.logger.info(f"Double-click em {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         ActionChains(self.driver).double_click(el).perform()
 
-    def right_click(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def right_click(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Clique com botão direito."""
         self.logger.info(f"Right-click em {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         ActionChains(self.driver).context_click(el).perform()
 
-    def click_and_hold(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def click_and_hold(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Clique e segura o botão do mouse."""
         self.logger.info(f"Click-and-hold em {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         ActionChains(self.driver).click_and_hold(el).perform()
 
@@ -265,18 +282,20 @@ class Browser:
     # --------------------------------------------------------------
     # Drag & drop
     # --------------------------------------------------------------
-    def drag_and_drop(self, source_selector: str, target_selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def drag_and_drop(self, source_selector: str, target_selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Arrasta um elemento e solta em outro."""
         self.logger.info(f"Drag and drop: {source_selector} ➜ {target_selector}")
+        timeout = timeout or self.explicit_timeout
 
         source = self.wait_for(source_selector, by=by, timeout=timeout)
         target = self.wait_for(target_selector, by=by, timeout=timeout)
 
         ActionChains(self.driver).drag_and_drop(source, target).perform()
 
-    def drag_and_drop_offset(self, selector: str, x: int, y: int, by=By.CSS_SELECTOR, timeout: int = 10):
+    def drag_and_drop_offset(self, selector: str, x: int, y: int, by=By.CSS_SELECTOR, timeout: int = None):
         """Arrasta elemento por deslocamento (x, y)."""
         self.logger.info(f"Drag by offset: {selector} ➜ ({x}, {y})")
+        timeout = timeout or self.explicit_timeout
 
         element = self.wait_for(selector, by=by, timeout=timeout)
         ActionChains(self.driver).drag_and_drop_by_offset(element, x, y).perform()
@@ -307,9 +326,10 @@ class Browser:
         self.logger.info(f"Scrolling by ({x}, {y})")
         self.driver.execute_script(f"window.scrollBy({x}, {y});")
 
-    def scroll_to_element(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+    def scroll_to_element(self, selector: str, by=By.CSS_SELECTOR, timeout: int = None):
         """Scroll até um elemento específico (scrollIntoView)."""
         self.logger.info(f"Scroll até elemento: {selector}")
+        timeout = timeout or self.explicit_timeout
         el = self.wait_for(selector, by=by, timeout=timeout)
         self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", el)
 

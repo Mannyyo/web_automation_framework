@@ -1,0 +1,6 @@
+default:
+  browser: chrome
+  headless: true
+  implicit_wait: 5
+  explicit_timeout: 10
+  log_level: DEBUG
