@@ -22,6 +22,8 @@ from selenium.common.exceptions import (
     ElementClickInterceptedException,
     NoSuchElementException,
 )
+from selenium.webdriver import ActionChains
+from selenium.webdriver.common.keys import Keys
 from utils.logger import setup_logger
 from utils.decorators import retry_on_fail
 
@@ -195,6 +197,100 @@ class Browser:
         text = element.text
         self.logger.debug(f"Texto obtido de '{selector}': {text[:50]}")
         return text
+
+    # --------------------------------------------------------------
+    # INTERAÇÕES AVANÇADAS
+    # --------------------------------------------------------------
+    def action_chain(self) -> ActionChains:
+        """Retorna um objeto ActionChains para construção manual."""
+        self.logger.debug("Construindo ActionChain manual.")
+        return ActionChains(self.driver)
+
+    def move_to(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Move o mouse até o elemento."""
+        self.logger.info(f"Movendo mouse para {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        ActionChains(self.driver).move_to_element(el).perform()
+
+    def hover(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Efetua um hover sobre o elemento."""
+        self.logger.info(f"Hover em {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        ActionChains(self.driver).move_to_element(el).perform()
+
+    def double_click(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Dá um double-click no elemento."""
+        self.logger.info(f"Double-click em {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        ActionChains(self.driver).double_click(el).perform()
+
+    def right_click(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Clique com botão direito."""
+        self.logger.info(f"Right-click em {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        ActionChains(self.driver).context_click(el).perform()
+
+    def click_and_hold(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Clique e segura o botão do mouse."""
+        self.logger.info(f"Click-and-hold em {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        ActionChains(self.driver).click_and_hold(el).perform()
+
+    def release(self):
+        """Solta o botão do mouse."""
+        self.logger.info("Soltando click (release)")
+        ActionChains(self.driver).release().perform()
+
+    # --------------------------------------------------------------
+    # Drag & drop
+    # --------------------------------------------------------------
+    def drag_and_drop(self, source_selector: str, target_selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Arrasta um elemento e solta em outro."""
+        self.logger.info(f"Drag and drop: {source_selector} ➜ {target_selector}")
+
+        source = self.wait_for(source_selector, by=by, timeout=timeout)
+        target = self.wait_for(target_selector, by=by, timeout=timeout)
+
+        ActionChains(self.driver).drag_and_drop(source, target).perform()
+
+    def drag_and_drop_offset(self, selector: str, x: int, y: int, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Arrasta elemento por deslocamento (x, y)."""
+        self.logger.info(f"Drag by offset: {selector} ➜ ({x}, {y})")
+
+        element = self.wait_for(selector, by=by, timeout=timeout)
+        ActionChains(self.driver).drag_and_drop_by_offset(element, x, y).perform()
+
+    # --------------------------------------------------------------
+    # TECLADO AVANÇADO
+    # --------------------------------------------------------------
+    def press_key(self, key: str):
+        """Pressiona uma tecla única (ex: Keys.ENTER)."""
+        self.logger.info(f"Pressionando tecla: {key}")
+        ActionChains(self.driver).send_keys(key).perform()
+
+    def key_down(self, key: str):
+        """Mantém tecla pressionada."""
+        self.logger.info(f"Key down: {key}")
+        ActionChains(self.driver).key_down(key).perform()
+
+    def key_up(self, key: str):
+        """Solta tecla pressionada."""
+        self.logger.info(f"Key up: {key}")
+        ActionChains(self.driver).key_up(key).perform()
+
+    # --------------------------------------------------------------
+    # SCROLL AVANÇADO
+    # --------------------------------------------------------------
+    def scroll_by(self, x: int, y: int):
+        """Scroll absoluto em coordenadas (x, y)."""
+        self.logger.info(f"Scrolling by ({x}, {y})")
+        self.driver.execute_script(f"window.scrollBy({x}, {y});")
+
+    def scroll_to_element(self, selector: str, by=By.CSS_SELECTOR, timeout: int = 10):
+        """Scroll até um elemento específico (scrollIntoView)."""
+        self.logger.info(f"Scroll até elemento: {selector}")
+        el = self.wait_for(selector, by=by, timeout=timeout)
+        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", el)
 
     # ------------------------------------------------------------------
     # Extração de dados
