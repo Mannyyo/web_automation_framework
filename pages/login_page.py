@@ -47,7 +47,7 @@ class LoginPage(BasePage):
         Consideramos que o avatar aparece após login.
         """
         try:
-            self.wait(self.AVATAR, timeout=timeout)
+            self.wait_for(self.WELCOME_AVATAR, timeout=timeout)
             return True
         except:
             return False
